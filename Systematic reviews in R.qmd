@@ -154,7 +154,7 @@ data = read_excel("example_data.xlsx", skip = 2) %>%
 
 #### 1.1) Run multiple.imputation()
 
-```{r imputation, warning=FALSE,include = FALSE}
+```{r imputation, warning=FALSE, message = FALSE}
 n.imp = 10
 df.for.imp = data %>% 
   select(contains(c("yield", "sd_")))

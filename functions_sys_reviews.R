@@ -18,8 +18,8 @@ doi_clean = function(data){
 
 # Load bibliography file
 
-load_bibliography <- function(path, # path to .bib files 
-                              files # 
+load_bibliography <- function(path, # path to .ris files 
+                              files #list of .ris files to read
                               ) {
   
   article_search = NULL
@@ -101,23 +101,31 @@ multiple.imputation = function(n.imp, # Number of imputed datasets you want to g
 
 # Function for calculating the pooled sample variance (treated + control)
 
-pooled.var = function(sd.treated, sd.control, n.control, n.treated, m.treated, m.control){
+pooled.var = function(sd.treated, # column that contains SD values of treated treatment
+                      sd.control, # column that contains SD values of control treatment
+                      n.control, # column that contains reps of control treatment
+                      n.treated, # column that contains reps of treated treatment
+                      m.treated, # column that contains mean values of treated treatment
+                      m.control){# column that contains Smean values of control treatment
   var = ( (sd.treated^2)/(n.treated*(m.treated^2)) ) + ( (sd.control^2)/(n.control*(m.control^2)) ) 
   return(var)
 }
 
 # Function for back transforming effect sizes
 
-trans = function(x){out = (exp(x)-1)*100
-
-return(out)
+trans = function(x){
+  out = (exp(x)-1)*100
+  return(out)
 }
 
 # Bootstrap meta-analytic model
 
-bootstrap_rma = function(data,response_variable, 
-                         moderator,
-                         boot_num, cores = 16, seed = 1)
+bootstrap_rma = function(data, #input data
+                         response_variable,  # name of the response variable in between quotations
+                         moderator, # name of the moderator variable if any just type in NA
+                         boot_num, # number of  bootstrap samples
+                         cores = 16, # number of cores available in your computer
+                         seed = 1) # seed for replicability
 {
   set.seed(seed)
   cluster <- new_cluster(cores)
@@ -185,7 +193,7 @@ bootstrap_rma = function(data,response_variable,
 
 # Summarise bootstraps
 
-summarise_bootstraps = function(data){
+summarise_bootstraps = function(data){  # data output as obteined from bootstrap_rma() function
   
   if ("MOD" %in% colnames(data)) {
     
