@@ -1,0 +1,279 @@
+---
+title: "Systematic reviews procedures in R"
+subtitle: "A compilation of methods and funtions for meta-analytic data in R"
+author: "Nicolas Giordano"
+date: 10-24-2022
+abstract-title: 'Summary'
+abstract: 'Lack of agreement in scientific findings derives in the need of exploring meta-analytic techniques. Systematic reviews tend to provide an UNBIASED method for answering specific questions. This code glimpses my personal experience while conducting a meta-analysis. I expect to help by sharing my own mistakes but also interesting functions to make meta-analytic research more friendly and approachable.'
+
+format:
+  html:
+    code-tools: true
+    code-fold: true
+    code-summary: 'Show code'
+    code-link: true
+    theme: united
+toc: true
+toc-title: 'Contents'
+toc-depth: 4
+toc-location: left
+number-sections: false
+highlight-style: pygments
+smooth-scroll: true
+---
+
+## Data Collection
+
+
+
+### SCOPUS QUERYS
+
+Lining out the search query one step at a time for REPLICABILITY
+
+[SCOPUS advanced search](https://www.scopus.com/search/form.uri?display=advanced)
+
+SOURCE-ID (78796 OR 59988 OR 38753 OR 15639) AND
+
+TITLE( (wheat OR nitrogen) AND (protein OR yield) ) AND
+
+PUBYEAR \> 1980
+
+### How we download a list of abstracts all at once?
+
+1.  Select all articles
+
+2.  Click on "Export CSV"
+
+3.  From the bulleted list select all those features you will need for further exploration of articles (Title, authors, publication year, abstract, etc)
+
+4.  Download files with the extension *.ris*, which can be handled by *revtools* package.
+
+```{r packages, message  = FALSE}
+knitr::opts_chunk$set(echo = TRUE,  message = FALSE,  warning = FALSE,  tidy = TRUE)
+# Required packages
+#install.packages("easypackages")
+library(easypackages)
+packages("tidyverse")
+packages("revtools")
+packages("readxl")
+packages("janitor")
+packages("bayestestR")
+packages("mi")
+packages("metafor")
+packages("multidplyr")
+source("functions_sys_reviews.R")
+`%nin%` <- Negate(`%in%`)
+```
+
+### 1. First article screening
+
+Query -
+
+SOURCE-ID (78796 OR 59988 OR 38753 OR 15639) AND
+
+**TITLE**( (wheat OR nitrogen) AND (protein OR yield) ) AND
+
+PUBYEAR \> 1980
+
+```{r search 1, warning=FALSE}
+path = "articles/articles already searched/"
+
+files <- list.files(path = path, pattern = "*.ris")
+
+first_search = load_bibliography(path = path, files = files)
+
+```
+
+### 2. Second article screening
+
+Query -
+
+SOURCE-ID (78796 OR 59988 OR 38753 OR 15639) AND
+
+**TITLE-ABS-KEY**( (wheat OR nitrogen) AND (protein OR yield) ) AND
+
+PUBYEAR \> 1980
+
+```{r search 2, warning=FALSE}
+path2 = "articles/new search/"
+
+files2 <- list.files(path = path2, pattern = "*.ris")
+
+second_search = load_bibliography(path = path2, files = files2)
+
+#View(second_search)
+```
+
+### 3. Merge the first and second screenings and get only the articles that WERE NOT SCREENED YET.
+
+```{r anti_join}
+df_final = anti_join(second_search, first_search)
+
+write.csv(x = df_final, file = "articles_search_final.csv")
+
+```
+
+### 4. Run revtools shiny app
+
+```{r revtools app}
+#screen_abstracts(max_file_size = 10)
+```
+
+# HANDS ON
+
+In this section we will:
+
+1.  Impute missing data using *mi* package
+
+2.  Calculate effect sizes
+
+3.  Run a pooled effects model
+
+4.  Test potential factor driving the size of the observed effects .
+
+5.  We will utilize bootstrapping techniques and parallel processing for making the code run faster.
+
+6.  Produce a forest plot.
+
+## Meta-analytic data
+
+As an example we will use data from split N application in with crops. This meta analysis is comparing whether applying N on a single dose or splitting(2 splits, 3 splits or just split, regardless or number of splits) has any effect on wheat yields.
+
+It does also compared how different factors (called moderators if categorical) affect the size of the observed effects.
+
+The article can be find here [Hu et al 2021](https://www.sciencedirect.com/science/article/pii/S0167198721001847)
+
+### Load data and wrangling
+
+```{r data}
+data = read_excel("example_data.xlsx", skip = 2) %>% 
+  janitor::clean_names()
+```
+
+### 1. Imputation of missing data
+
+#### 1.1) Run multiple.imputation()
+
+```{r imputation, warning=FALSE,include = FALSE}
+n.imp = 10
+df.for.imp = data %>% 
+  select(contains(c("yield", "sd_")))
+
+data.imp = data %>% 
+  cbind(# Imputation of SD of grain yield when applying N all at once
+        multiple.imputation(n.imp = n.imp, df.variables = df.for.imp, impute.var = "sd_1", var.name = "sd1_imp"),
+        # Imputation of SD of grain yield when splitting N twice
+        multiple.imputation(n.imp = n.imp, df.variables = df.for.imp, impute.var = "sd_2", var.name = "sd2_imp")
+  )
+```
+
+### 2. Calculate effect sizes & pooled sample variance
+
+```{r effect_sizes}
+data.imp_es = 
+  data.imp %>%
+  drop_na(yield_kg_ha_1,reps_1, reps_2, sd1_imp, sd2_imp, yield_kg_ha_2 ) %>% 
+  transmute(
+            PAPER_ID = no, 
+            TEXTURE = soil_texture, 
+            AI = aridity_index, 
+            WHEAT_TYPE = whea_type, 
+            TILLAGE = tillage,
+            # Response Ratio
+            RR = log(yield_kg_ha_2/yield_kg_ha_1),
+            # Calculate pooled sampling variance
+            VAR = pooled.var(sd.treated = sd2_imp, sd.control  = sd1_imp, 
+                          n.control = reps_1, n.treated = reps_2,
+                          m.treated = yield_kg_ha_1, m.control = yield_kg_ha_2),
+            # Weights
+            W = 1/VAR
+            )
+```
+
+### 3. Run pooled model - intercept only
+
+You can find more info about I2 statistic here: [Borenstein 2015](https://onlinelibrary.wiley.com/doi/full/10.1002/jrsm.1230), [Higgins and Thompson 2002](https://onlinelibrary.wiley.com/doi/abs/10.1002/sim.1186)
+
+```{r model}
+# Run pooled model
+mod = rma(yi = RR,
+          vi = VAR,
+          weights = W,
+          #control = list(optimizer="optimParallel", ncpus=3),
+          data = data.imp_es)
+
+summary(mod)
+
+# Back transformation
+trans(coef(mod))
+
+# I squared statistic
+mod$I2
+```
+
+### 4. Influential Studies Diagnosis
+
+When certain studies excert a strong influence in the model output they are consider influential. An influential case can be diagnosed when the cook's D value for a given study is x 3 times greater than the average Cook's D of the whole data. Use this citation for the this procedure: [Cook 1977](https://www.tandfonline.com/doi/abs/10.1080/01621459.1979.10481634), [Stephanie 2016](https://www.statisticshowto.com/cooks-distance/)
+
+```{r influential_cases}
+# cooks.distance.rma.uni(model = mod, progbar = T) %>% 
+#   saveRDS("output/cooksD_diagnosis.RData")
+# 
+# plot(readRDS("output/cooksD_diagnosis.RData"))
+
+influential_cases = c(2, 3, 4)
+
+data.imp_es_ic = 
+  data.imp_es %>% 
+  mutate(W = case_when(PAPER_ID %in% influential_cases ~ 0, T~W))
+
+```
+
+### 5. Run unbootstrapped model
+
+Weight of influential studies is set to zero
+
+```{r model 2}
+mod2 = rma(yi = RR,
+          vi = VAR,
+          weights = W,
+          mods = ~ 0 + TEXTURE,
+          #control = list(optimizer="optimParallel", ncpus=3),
+          data = data.imp_es_ic)
+```
+
+### 6. Run bootstrapped models
+
+Citation: [Adams et al 1997](https://www.scopus.com/record/display.uri?eid=2-s2.0-0030613897&origin=inward)
+
+#### 6.1) Pooled effects, intercept only model
+
+```{r bootstrap}
+bootstrap_rma(data = data.imp_es_ic, response_variable = "RR",moderator = NA, boot_num = 16, cores = 16)
+```
+
+#### 6.2) Test potential moderators
+
+```{r moderators}
+bootstrap_rma(data = data.imp_es_ic, response_variable = "RR",moderator = "TEXTURE", boot_num = 16, cores = 16)
+```
+
+#### 6.3) Summarize bootstraps
+
+```{r summarise_boot}
+df.plot = summarise_bootstraps(readRDS("output/RR_TEXTURE_mod.RData"))
+```
+
+#### 6.4) Plot
+
+```{r plot}
+df.plot %>% 
+  ggplot()+
+  geom_linerange(aes(ymin = trans(ESTIM_q975), ymax = trans(ESTIM_q025), x = MOD), size = 1)+
+  geom_point(aes(x = MOD, y = trans(ESTIM_q500), fill = MOD), shape = 21, size = 6, stroke = 1.2)+
+  coord_flip()+ 
+  labs(x = "Soil Texture", y = "Effect Size (%)")+
+  guides(fill = "none")+
+  theme_bw()
+  
+```
