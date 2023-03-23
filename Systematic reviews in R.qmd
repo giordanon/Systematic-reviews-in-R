@@ -2,7 +2,7 @@
 title: "Systematic reviews procedures in R"
 subtitle: "A compilation of methods and funtions for meta-analytic data in R"
 author: "Nicolas Giordano"
-date: 10-24-2022
+date: 03-23-2023
 abstract-title: 'Summary'
 abstract: 'Lack of agreement in scientific findings derives in the need of exploring meta-analytic techniques. Systematic reviews tend to provide an UNBIASED method for answering specific questions. This code glimpses my personal experience while conducting a meta-analysis. I expect to help by sharing my own mistakes but also interesting functions to make meta-analytic research more friendly and approachable.'
 
@@ -48,19 +48,22 @@ PUBYEAR \> 1980
 
 4.  Download files with the extension *.ris*, which can be handled by *revtools* package.
 
-```{r packages, message  = FALSE}
+```{r packages, message  = FALSE, warning = F}
 knitr::opts_chunk$set(echo = TRUE,  message = FALSE,  warning = FALSE,  tidy = TRUE)
 # Required packages
-#install.packages("easypackages")
-library(easypackages)
-packages("tidyverse")
-packages("revtools")
-packages("readxl")
-packages("janitor")
-packages("bayestestR")
-packages("mi")
-packages("metafor")
-packages("multidplyr")
+#install.packages("pacman")
+library(pacman)
+
+p_load("tidyverse", #data wrangling 
+       "revtools", # article handling
+       "readxl", # readl excel files
+       "janitor", # column names
+       "bayestestR", # bootstrap summaries
+       "mi", # multiple imputation
+       "metafor", # meta-analytic model
+       "multidplyr") # parallel processing
+
+# Custom functions
 source("functions_sys_reviews.R")
 `%nin%` <- Negate(`%in%`)
 ```
@@ -76,15 +79,17 @@ SOURCE-ID (78796 OR 59988 OR 38753 OR 15639) AND
 PUBYEAR \> 1980
 
 ```{r search 1, warning=FALSE}
-path = "articles/articles already searched/"
+path <- "articles/articles already searched/"
 
 files <- list.files(path = path, pattern = "*.ris")
 
 first_search = load_bibliography(path = path, files = files)
-
+View(first_search[,1:5])
 ```
 
-### 2. Second article screening
+### 2. 
+
+#### Second article screening
 
 Query -
 
@@ -95,19 +100,21 @@ SOURCE-ID (78796 OR 59988 OR 38753 OR 15639) AND
 PUBYEAR \> 1980
 
 ```{r search 2, warning=FALSE}
-path2 = "articles/new search/"
+path2 <- "articles/new search/"
 
 files2 <- list.files(path = path2, pattern = "*.ris")
 
-second_search = load_bibliography(path = path2, files = files2)
+second_search <- load_bibliography(path = path2, files = files2)
 
-#View(second_search)
+View(second_search)
 ```
 
-### 3. Merge the first and second screenings and get only the articles that WERE NOT SCREENED YET.
+### 3. 
+
+#### Merge the first and second screenings and get only the articles that WERE NOT SCREENED YET.
 
 ```{r anti_join}
-df_final = anti_join(second_search, first_search)
+df_final <- anti_join(second_search, first_search)
 
 write.csv(x = df_final, file = "articles_search_final.csv")
 
@@ -116,7 +123,7 @@ write.csv(x = df_final, file = "articles_search_final.csv")
 ### 4. Run revtools shiny app
 
 ```{r revtools app}
-#screen_abstracts(max_file_size = 10)
+screen_abstracts(max_file_size = 10)
 ```
 
 # HANDS ON
@@ -146,7 +153,7 @@ The article can be find here [Hu et al 2021](https://www.sciencedirect.com/scien
 ### Load data and wrangling
 
 ```{r data}
-data = read_excel("example_data.xlsx", skip = 2) %>% 
+data <- read_excel("example_data.xlsx", skip = 2) %>% 
   janitor::clean_names()
 ```
 
@@ -155,11 +162,11 @@ data = read_excel("example_data.xlsx", skip = 2) %>%
 #### 1.1) Run multiple.imputation()
 
 ```{r imputation, warning=FALSE, message = FALSE}
-n.imp = 10
-df.for.imp = data %>% 
-  select(contains(c("yield", "sd_")))
+n.imp <- 10
+df.for.imp <- data %>% 
+  dplyr::select(contains(c("yield", "sd_")))
 
-data.imp = data %>% 
+data.imp <- data %>% 
   cbind(# Imputation of SD of grain yield when applying N all at once
         multiple.imputation(n.imp = n.imp, df.variables = df.for.imp, impute.var = "sd_1", var.name = "sd1_imp"),
         # Imputation of SD of grain yield when splitting N twice
@@ -170,7 +177,7 @@ data.imp = data %>%
 ### 2. Calculate effect sizes & pooled sample variance
 
 ```{r effect_sizes}
-data.imp_es = 
+data.imp_es <- 
   data.imp %>%
   drop_na(yield_kg_ha_1,reps_1, reps_2, sd1_imp, sd2_imp, yield_kg_ha_2 ) %>% 
   transmute(
@@ -182,9 +189,9 @@ data.imp_es =
             # Response Ratio
             RR = log(yield_kg_ha_2/yield_kg_ha_1),
             # Calculate pooled sampling variance
-            VAR = pooled.var(sd.treated = sd2_imp, sd.control  = sd1_imp, 
-                          n.control = reps_1, n.treated = reps_2,
-                          m.treated = yield_kg_ha_1, m.control = yield_kg_ha_2),
+            VAR = pooled.var(sd.treated = sd2_imp, sd.control  = sd1_imp,
+                             n.control = reps_1, n.treated = reps_2,
+                             m.treated = yield_kg_ha_1, m.control = yield_kg_ha_2),
             # Weights
             W = 1/VAR
             )
@@ -207,6 +214,10 @@ summary(mod)
 # Back transformation
 trans(coef(mod))
 
+mod$ci.lb %>% trans()
+mod$ci.ub %>% trans()
+
+
 # I squared statistic
 mod$I2
 ```
@@ -218,12 +229,12 @@ When certain studies excert a strong influence in the model output they are cons
 ```{r influential_cases}
 # cooks.distance.rma.uni(model = mod, progbar = T) %>% 
 #   saveRDS("output/cooksD_diagnosis.RData")
-# 
+
 # plot(readRDS("output/cooksD_diagnosis.RData"))
 
-influential_cases = c(2, 3, 4)
+influential_cases <- c(2, 3, 4)
 
-data.imp_es_ic = 
+data.imp_es_ic <- 
   data.imp_es %>% 
   mutate(W = case_when(PAPER_ID %in% influential_cases ~ 0, T~W))
 
@@ -234,12 +245,12 @@ data.imp_es_ic =
 Weight of influential studies is set to zero
 
 ```{r model 2}
-mod2 = rma(yi = RR,
-          vi = VAR,
-          weights = W,
-          mods = ~ 0 + TEXTURE,
-          #control = list(optimizer="optimParallel", ncpus=3),
-          data = data.imp_es_ic)
+mod2 <- rma(yi = RR,
+            vi = VAR,
+            weights = W,
+            mods = ~ 0 + TEXTURE,
+            #control = list(optimizer="optimParallel", ncpus=3),
+            data = data.imp_es_ic)
 ```
 
 ### 6. Run bootstrapped models
@@ -249,19 +260,27 @@ Citation: [Adams et al 1997](https://www.scopus.com/record/display.uri?eid=2-s2.
 #### 6.1) Pooled effects, intercept only model
 
 ```{r bootstrap}
-bootstrap_rma(data = data.imp_es_ic, response_variable = "RR",moderator = NA, boot_num = 16, cores = 16)
+bootstrap_rma(data = data.imp_es_ic, 
+              response_variable = "RR",
+              moderator = NA, 
+              boot_num = 16, 
+              cores = 16)
+readRDS("output/RR_mod.RData")
 ```
 
 #### 6.2) Test potential moderators
 
 ```{r moderators}
 bootstrap_rma(data = data.imp_es_ic, response_variable = "RR",moderator = "TEXTURE", boot_num = 16, cores = 16)
+
+readRDS("output/RR_TEXTURE_mod.RData")
+
 ```
 
 #### 6.3) Summarize bootstraps
 
 ```{r summarise_boot}
-df.plot = summarise_bootstraps(readRDS("output/RR_TEXTURE_mod.RData"))
+df.plot <- summarise_bootstraps(readRDS("output/RR_TEXTURE_mod.RData"))
 ```
 
 #### 6.4) Plot
@@ -274,6 +293,6 @@ df.plot %>%
   coord_flip()+ 
   labs(x = "Soil Texture", y = "Effect Size (%)")+
   guides(fill = "none")+
-  theme_bw()
+  theme_bw()I
   
 ```
