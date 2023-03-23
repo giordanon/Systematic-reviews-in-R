@@ -61,7 +61,7 @@ p_load("tidyverse", #data wrangling
        "bayestestR", # bootstrap summaries
        "mi", # multiple imputation
        "metafor", # meta-analytic model
-       "multidplyr") # parallel processing
+       "multidplyr", "parallel") # parallel processing
 
 # Custom functions
 source("functions_sys_reviews.R")
@@ -168,7 +168,10 @@ df.for.imp <- data %>%
 
 data.imp <- data %>% 
   cbind(# Imputation of SD of grain yield when applying N all at once
-        multiple.imputation(n.imp = n.imp, df.variables = df.for.imp, impute.var = "sd_1", var.name = "sd1_imp"),
+        multiple.imputation(n.imp = n.imp, # number of imputations
+                            df.variables = df.for.imp, # data frame containing columns with the mean and standard deviation of the response variable
+                            impute.var = "sd_1", # name of the columns we want to imputate
+                            var.name = "sd1_imp"), # name of new column with imputation of missing values
         # Imputation of SD of grain yield when splitting N twice
         multiple.imputation(n.imp = n.imp, df.variables = df.for.imp, impute.var = "sd_2", var.name = "sd2_imp")
   )
@@ -203,7 +206,7 @@ You can find more info about I2 statistic here: [Borenstein 2015](https://online
 
 ```{r model}
 # Run pooled model
-mod = rma(yi = RR,
+mod <- rma(yi = RR,
           vi = VAR,
           weights = W,
           #control = list(optimizer="optimParallel", ncpus=3),
@@ -260,18 +263,25 @@ Citation: [Adams et al 1997](https://www.scopus.com/record/display.uri?eid=2-s2.
 #### 6.1) Pooled effects, intercept only model
 
 ```{r bootstrap}
+# Find the number of cores your computer has
+ncores <- detectCores()
+
 bootstrap_rma(data = data.imp_es_ic, 
               response_variable = "RR",
               moderator = NA, 
               boot_num = 16, 
-              cores = 16)
+              cores = ncores)
 readRDS("output/RR_mod.RData")
 ```
 
 #### 6.2) Test potential moderators
 
 ```{r moderators}
-bootstrap_rma(data = data.imp_es_ic, response_variable = "RR",moderator = "TEXTURE", boot_num = 16, cores = 16)
+bootstrap_rma(data = data.imp_es_ic, 
+              response_variable = "RR",
+              moderator = "TEXTURE", 
+              boot_num = 16, 
+              cores = ncores)
 
 readRDS("output/RR_TEXTURE_mod.RData")
 
