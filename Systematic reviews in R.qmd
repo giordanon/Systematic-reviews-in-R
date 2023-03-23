@@ -271,6 +271,9 @@ bootstrap_rma(data = data.imp_es_ic,
               moderator = NA, 
               boot_num = 16, 
               cores = ncores)
+
+
+
 readRDS("output/RR_mod.RData")
 ```
 

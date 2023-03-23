@@ -129,7 +129,7 @@ bootstrap_rma = function(data, #input data
 {
   set.seed(seed)
   cluster <- new_cluster(cores)
-  cluster_library(cluster, c("metafor","tidyverse"))
+  cluster_library(cluster, c("metafor","dplyr", "purrr", "modelr", "multidplyr"))
   
   
   
@@ -142,7 +142,7 @@ bootstrap_rma = function(data, #input data
         #Run bootstrapped models
         modelr::bootstrap(n =  boot_num, id = 'boot_num') %>%
         group_by(boot_num) %>%
-        partition(cluster) %>% 
+        multidplyr::partition(cluster) %>% 
         mutate(fit = strap %>% map(~rma(yi = RV,
                                         vi = VAR,
                                         weights = W,
@@ -154,7 +154,7 @@ bootstrap_rma = function(data, #input data
         )
         )  %>%
         dplyr::select(-fit, -strap) %>%
-        collect() %>% 
+        multidplyr::collect() %>% 
         unnest(mod_val) %>% 
         saveRDS(paste0("output/",response_variable,"_mod.RData"))
     )
@@ -170,7 +170,7 @@ bootstrap_rma = function(data, #input data
         #Run bootstrapped models
         modelr::bootstrap(n =  boot_num, id = 'boot_num') %>%
         group_by(boot_num) %>%
-        partition(cluster) %>% 
+        multidplyr::partition(cluster) %>% 
         mutate(fit = strap %>% map(~rma(yi = RV,
                                         vi = VAR,
                                         mods = ~ 0 + MOD, 
@@ -184,7 +184,7 @@ bootstrap_rma = function(data, #input data
         )
         )  %>%
         dplyr::select(-fit, -strap) %>%
-        collect() %>% 
+        multidplyr::collect() %>% 
         unnest(mod_val) %>% 
         saveRDS(paste0("output/",response_variable,"_",moderator,"_mod.RData"))
     )
