@@ -137,8 +137,8 @@ bootstrap_rma = function(data, #input data
     
     system.time(
       data %>%
-        rename(#MOD = moderator, 
-          RV = response_variable) %>%  
+        rename(.,
+               RV = all_of(response_variable)) %>%  
         #Run bootstrapped models
         modelr::bootstrap(n =  boot_num, id = 'boot_num') %>%
         group_by(boot_num) %>%
@@ -154,7 +154,7 @@ bootstrap_rma = function(data, #input data
         )
         )  %>%
         dplyr::select(-fit, -strap) %>%
-        multidplyr::collect() %>% 
+        dplyr::collect() %>% 
         unnest(mod_val) %>% 
         saveRDS(paste0("output/",response_variable,"_mod.RData"))
     )
@@ -165,8 +165,9 @@ bootstrap_rma = function(data, #input data
     
     system.time(
       data %>%
-        rename(MOD = moderator, 
-               RV = response_variable) %>%  
+        rename(.,
+               MOD = all_of(moderator), 
+               RV = all_of(response_variable)) %>%  
         #Run bootstrapped models
         modelr::bootstrap(n =  boot_num, id = 'boot_num') %>%
         group_by(boot_num) %>%
@@ -184,7 +185,7 @@ bootstrap_rma = function(data, #input data
         )
         )  %>%
         dplyr::select(-fit, -strap) %>%
-        multidplyr::collect() %>% 
+        dplyr::collect() %>% 
         unnest(mod_val) %>% 
         saveRDS(paste0("output/",response_variable,"_",moderator,"_mod.RData"))
     )
@@ -201,11 +202,8 @@ summarise_bootstraps = function(data){  # data output as obteined from bootstrap
       group_by(MOD) %>% 
       summarise_at(vars(ESTIM, PVAL), list(q975 = ~quantile(., 0.975, na.rm=T),
                                            q025 = ~quantile(., 0.025, na.rm=T),
-                                           #hdi = ~hdi(.),
-                                           q500 = ~quantile(.,0.500, na.rm=T))) %>% 
-      unnest() %>% 
-      #dplyr::select(MOD,ESTIM_mean,CILB_LB, CIUB_UB, CI_low3, CI_high3) %>% 
-      ungroup()
+                                           #hdi = ~hdi(.), you might want to use HDI depending on the distribution of the resamples. HDI is worth using it for p-values bootstraps
+                                           q500 = ~quantile(.,0.500, na.rm=T))) 
     
   }
   
@@ -215,11 +213,8 @@ summarise_bootstraps = function(data){  # data output as obteined from bootstrap
       ungroup() %>%  
       summarise_at(vars(ESTIM, PVAL), list(q975 = ~quantile(., 0.975, na.rm=T),
                                            q025 = ~quantile(., 0.025, na.rm=T),
-                                           #hdi = ~hdi(.),
-                                           q500 = ~quantile(.,0.500, na.rm=T))) %>% 
-      unnest() %>% 
-      #dplyr::select(ESTIM_mean,CILB_LB, CIUB_UB, CI_low3, CI_high3) %>% 
-      ungroup()
+                                           #hdi = ~hdi(.), you might want to use HDI depending on the distribution of the resamples. HDI is worth using it for p-values bootstraps
+                                           q500 = ~quantile(.,0.500, na.rm=T))) 
     
   }
   

@@ -265,6 +265,7 @@ Citation: [Adams et al 1997](https://www.scopus.com/record/display.uri?eid=2-s2.
 ```{r bootstrap}
 # Find the number of cores your computer has
 ncores <- detectCores()
+boot_num <- 16 # should be at least 1000
 
 bootstrap_rma(data = data.imp_es_ic, 
               response_variable = "RR",
@@ -280,6 +281,10 @@ readRDS("output/RR_mod.RData")
 #### 6.2) Test potential moderators
 
 ```{r moderators}
+# Find the number of cores your computer has
+ncores <- detectCores()
+boot_num <- 16 # should be at least 1000
+
 bootstrap_rma(data = data.imp_es_ic, 
               response_variable = "RR",
               moderator = "TEXTURE", 
