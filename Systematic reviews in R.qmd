@@ -174,7 +174,7 @@ data.imp <- data %>%
                             var.name = "sd1_imp"), # name of new column with imputation of missing values
         # Imputation of SD of grain yield when splitting N twice
         multiple.imputation(n.imp = n.imp, df.variables = df.for.imp, impute.var = "sd_2", var.name = "sd2_imp")
-  )
+        )
 ```
 
 ### 2. Calculate effect sizes & pooled sample variance
@@ -219,7 +219,6 @@ trans(coef(mod))
 
 mod$ci.lb %>% trans()
 mod$ci.ub %>% trans()
-
 
 # I squared statistic
 mod$I2
