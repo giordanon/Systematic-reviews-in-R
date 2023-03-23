@@ -298,11 +298,11 @@ df.plot <- summarise_bootstraps(readRDS("output/RR_TEXTURE_mod.RData"))
 ```{r plot}
 df.plot %>% 
   ggplot()+
-  geom_linerange(aes(ymin = trans(ESTIM_q975), ymax = trans(ESTIM_q025), x = MOD), size = 1)+
+  geom_linerange(aes(ymin = trans(ESTIM_q975), ymax = trans(ESTIM_q025), x = MOD), linewidth = 1)+
   geom_point(aes(x = MOD, y = trans(ESTIM_q500), fill = MOD), shape = 21, size = 6, stroke = 1.2)+
   coord_flip()+ 
   labs(x = "Soil Texture", y = "Effect Size (%)")+
   guides(fill = "none")+
-  theme_bw()I
+  theme_bw()
   
 ```
