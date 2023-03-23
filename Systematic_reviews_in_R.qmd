@@ -123,7 +123,7 @@ write.csv(x = df_final, file = "articles_search_final.csv")
 ### 4. Run revtools shiny app
 
 ```{r revtools app}
-screen_abstracts(max_file_size = 10)
+#screen_abstracts(max_file_size = 10)
 ```
 
 # HANDS ON
@@ -161,7 +161,7 @@ data <- read_excel("example_data.xlsx", skip = 2) %>%
 
 #### 1.1) Run multiple.imputation()
 
-```{r imputation, warning=FALSE, message = FALSE}
+```{r imputation, warning=FALSE, message = FALSE ,include = F}
 n.imp <- 10
 df.for.imp <- data %>% 
   dplyr::select(contains(c("yield", "sd_")))
@@ -261,7 +261,7 @@ Citation: [Adams et al 1997](https://www.scopus.com/record/display.uri?eid=2-s2.
 
 #### 6.1) Pooled effects, intercept only model
 
-```{r bootstrap}
+```{r bootstrap ,include = F}
 # Find the number of cores your computer has
 ncores <- detectCores()
 boot_num <- 16 # should be at least 1000
@@ -279,7 +279,7 @@ readRDS("output/RR_mod.RData")
 
 #### 6.2) Test potential moderators
 
-```{r moderators}
+```{r moderators ,include = F}
 # Find the number of cores your computer has
 ncores <- detectCores()
 boot_num <- 16 # should be at least 1000
