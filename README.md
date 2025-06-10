@@ -1,6 +1,6 @@
 # Systematic-reviews-in-R
 
-## A compilation of methods and funtions for meta-analytic data in R
+A compilation of methods and funtions for meta-analytic data in R
  
 ### Nicolas Giordano
 
